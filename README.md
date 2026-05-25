@@ -64,6 +64,8 @@ Security weaknesses:
 
 ## Architecture — Improved State (After Hardening)
 
+![Improved Architecture](docs/architecture/improvedarchitecture.png)
+
 ```
                     ┌─────────────────────────────────────────────────────────┐
                     │  K3s CLUSTER — namespace: rakie                          │
