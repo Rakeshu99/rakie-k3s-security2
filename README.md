@@ -31,6 +31,7 @@ CA1 built the platform. CA2 secures, monitors, and validates it.
 
 ## Architecture — Current State (Before Hardening)
 
+![Current Architecture](docs/architecture/beforePlatformARchitecture.png)
 ```
                     ┌─────────────────────────────────────────────┐
                     │  K3s CLUSTER — namespace: rakie              │
