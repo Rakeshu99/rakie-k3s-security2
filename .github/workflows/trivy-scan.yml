@@ -1,0 +1,72 @@
+name: Container Security Scan (Trivy)
+
+on:
+  push:
+    branches: [main, develop]
+    paths: ['services/**', 'k8s/**']
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 08 * * 1'  # Weekly — catches new CVEs without code changes
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository_owner }}/rakie
+
+jobs:
+  trivy-scan:
+    name: Trivy Image Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    strategy:
+      matrix:
+        service: [gateway, checkout, pricing, inventory]
+      fail-fast: false
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build image — ${{ matrix.service }}
+        run: |
+          docker build \
+            -t ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service }}:${{ github.sha }} \
+            ./services/${{ matrix.service }}
+
+      - name: Run Trivy — ${{ matrix.service }}
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: '${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service }}:${{ github.sha }}'
+          format: 'sarif'
+          output: 'trivy-${{ matrix.service }}.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'          # Blocks merge on CRITICAL/HIGH
+          ignore-unfixed: false
+          vuln-type: 'os,library'
+
+      - name: Upload to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-${{ matrix.service }}.sarif'
+          category: 'trivy-${{ matrix.service }}'
+
+  security-summary:
+    name: Security Summary
+    runs-on: ubuntu-latest
+    needs: [trivy-scan]
+    if: always()
+    steps:
+      - name: Post summary
+        run: |
+          echo "## 🔐 CA2 Security Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "| Service | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          for svc in gateway checkout pricing inventory; do
+            echo "| rakie-$svc:hardened | ${{ needs.trivy-scan.result }} |" >> $GITHUB_STEP_SUMMARY
+          done
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Expected:** CRITICAL: 0 across all images after P2/P3 fixes applied" >> $GITHUB_STEP_SUMMARY

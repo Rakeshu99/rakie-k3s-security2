@@ -1,0 +1,12 @@
+node_modules/
+*.env
+.env.*
+security/trivy/results/
+security/kubeaudit/results/
+security/checkov/results/
+security/gitleaks/*.tar.gz
+.DS_Store
+Thumbs.db
+*.kubeconfig
+kubeconfig
+*.log

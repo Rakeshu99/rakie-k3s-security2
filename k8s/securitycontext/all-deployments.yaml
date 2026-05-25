@@ -1,0 +1,102 @@
+# P4/P5 Fix — Hardened securityContext on all 4 application deployments
+# Command used: kubectl apply -f k8s/securitycontext/all-deployments.yaml
+# Also applied via: kubectl patch deployment $svc -n rakie --type='json' -p='...'
+# Evidence: FX-2, FX-3 in CA2 report
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway
+  namespace: rakie
+spec:
+  template:
+    spec:
+      automountServiceAccountToken: false      # P5: SA token disabled
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: gateway
+          image: rakie-gateway:hardened         # P2/P3: CVE-fixed image
+          securityContext:
+            allowPrivilegeEscalation: false     # P4: prevents setuid escalation
+            readOnlyRootFilesystem: true        # P5: no binary injection
+            capabilities:
+              drop:
+                - ALL                           # P4: removes all Linux capabilities
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: checkout
+  namespace: rakie
+spec:
+  template:
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: checkout
+          image: rakie-checkout:hardened
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pricing
+  namespace: rakie
+spec:
+  template:
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: pricing
+          image: rakie-pricing:hardened
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inventory
+  namespace: rakie
+spec:
+  template:
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: inventory
+          image: rakie-inventory:hardened
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+
+# NOTE: postgres is intentionally excluded.
+# UID 999 is required by postgres:15-alpine for data directory ownership.
+# runAsNonRoot:true would prevent database startup — accepted exception.
+# Risk mitigated by NetworkPolicy restricting postgres to checkout only.

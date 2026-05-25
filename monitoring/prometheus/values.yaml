@@ -1,0 +1,35 @@
+# kube-prometheus-stack Helm values
+# Commands used:
+#   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+#   helm repo update
+#   kubectl create namespace monitoring
+#   helm install monitoring prometheus-community/kube-prometheus-stack \
+#     --namespace monitoring \
+#     -f monitoring/prometheus/values.yaml
+#
+# Result: 13 ServiceMonitors, 35 PrometheusRules, Grafana at NodePort 32000
+# Evidence: Figures OB-1, OB-2, OB-3, OB-4, OB-MON in CA2 report
+
+grafana:
+  service:
+    type: NodePort
+    nodePort: 32000
+  adminPassword: "prom-operator"   # Change in production
+
+prometheus:
+  prometheusSpec:
+    scrapeInterval: 30s
+    evaluationInterval: 30s
+    retention: 7d
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+
+alertmanager:
+  alertmanagerSpec:
+    retention: 120h
+
+kube-state-metrics:
+  enabled: true
+
+nodeExporter:
+  enabled: true

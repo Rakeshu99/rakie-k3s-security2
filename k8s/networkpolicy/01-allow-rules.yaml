@@ -1,0 +1,110 @@
+# P1 Fix — 5 scoped allow rules (minimum required traffic only)
+# Command used: kubectl apply -f k8s/networkpolicy/01-allow-rules.yaml
+# Evidence: CT-6, CT-7 — lateral movement confirmed BLOCKED
+
+---
+# Rule 1: External → Traefik
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-traefik
+  namespace: rakie
+spec:
+  podSelector:
+    matchLabels:
+      app: traefik
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - port: 30080
+          protocol: TCP
+---
+# Rule 2: Traefik → Gateway
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-traefik-to-gateway
+  namespace: rakie
+spec:
+  podSelector:
+    matchLabels:
+      app: gateway
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: traefik
+      ports:
+        - port: 3000
+          protocol: TCP
+---
+# Rule 3: Gateway → Checkout
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-gateway-to-checkout
+  namespace: rakie
+spec:
+  podSelector:
+    matchLabels:
+      app: checkout
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: gateway
+      ports:
+        - port: 3001
+          protocol: TCP
+---
+# Rule 4: Checkout → Pricing + Inventory
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-checkout-to-services
+  namespace: rakie
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values: [pricing, inventory]
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: checkout
+      ports:
+        - port: 3002
+          protocol: TCP
+        - port: 3003
+          protocol: TCP
+---
+# Rule 5: Checkout → Postgres ONLY (single-writer enforced at network layer)
+# Pricing and inventory CANNOT reach postgres — confirmed by CT-6, CT-7
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-checkout-to-postgres
+  namespace: rakie
+spec:
+  podSelector:
+    matchLabels:
+      app: postgres
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: checkout
+      ports:
+        - port: 5432
+          protocol: TCP

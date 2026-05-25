@@ -1,0 +1,18 @@
+# P1 Fix — NetworkPolicy default-deny-all
+# Applied to rakie namespace — blocks ALL ingress and egress by default
+# Command used: kubectl apply -f k8s/networkpolicy/00-default-deny-all.yaml
+# Evidence: Figure FX-1 in CA2 report
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: rakie
+  labels:
+    security.ca2/applied: "true"
+    security.ca2/finding: "P1"
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
